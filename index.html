@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StockGen — Adobe Stock Content Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0f13;
+    --surface: #16181f;
+    --surface2: #1e2029;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #eef0f4;
+    --text2: #8b90a0;
+    --text3: #4a4f60;
+    --accent: #f0c060;
+    --accent2: #e8a830;
+    --blue: #4e8ef7;
+    --green: #3ecf8e;
+    --red: #f06060;
+    --yellow: #f0c060;
+    --r: 12px;
+    --r-sm: 8px;
+    --mono: 'Fira Code', monospace;
+    --sans: 'Outfit', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ─── LAYOUT ─── */
+  .app { max-width: 860px; margin: 0 auto; padding: 0 16px 80px; }
+
+  /* ─── HEADER ─── */
+  .header {
+    padding: 40px 0 32px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 32px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .logo {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+  .logo span { color: var(--accent); }
+  .header-sub {
+    font-size: 13px;
+    color: var(--text2);
+    margin-top: 4px;
+    font-weight: 400;
+  }
+  .api-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 6px 14px 6px 10px;
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--text2);
+    cursor: pointer;
+    transition: border-color .2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .api-status:hover { border-color: var(--border2); }
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--text3);
+    flex-shrink: 0;
+  }
+  .dot.connected { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+  /* ─── API KEY MODAL ─── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100; padding: 20px;
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s;
+  }
+  .modal-overlay.show { opacity: 1; pointer-events: all; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 16px;
+    padding: 32px;
+    width: 100%; max-width: 460px;
+    transform: translateY(12px);
+    transition: transform .25s;
+  }
+  .modal-overlay.show .modal { transform: translateY(0); }
+  .modal-title {
+    font-size: 18px; font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .modal-sub {
+    font-size: 13px; color: var(--text2);
+    margin-bottom: 24px; line-height: 1.5;
+  }
+  .modal-sub a { color: var(--blue); text-decoration: none; }
+  .modal-sub a:hover { text-decoration: underline; }
+  .field-label {
+    font-size: 11px; font-family: var(--mono);
+    color: var(--accent); letter-spacing: .08em;
+    margin-bottom: 8px; display: block;
+  }
+  .key-input-wrap {
+    position: relative;
+    margin-bottom: 20px;
+  }
+  .key-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    padding: 12px 44px 12px 14px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .key-input:focus { border-color: rgba(240,192,96,0.4); }
+  .key-toggle {
+    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer;
+    color: var(--text2); font-size: 16px; padding: 4px;
+  }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 8px;
+    border: none; border-radius: var(--r-sm);
+    font-family: var(--sans); font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: all .18s; text-decoration: none;
+    padding: 11px 20px;
+  }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-primary {
+    background: var(--accent);
+    color: #0e0f13;
+    width: 100%;
+  }
+  .btn-primary:hover:not(:disabled) { background: var(--accent2); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--border);
+    width: 100%;
+    margin-top: 8px;
+    font-size: 13px;
+  }
+  .btn-ghost:hover { border-color: var(--border2); color: var(--text); }
+
+  /* ─── FORM ─── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+
+  .form-grid { display: flex; flex-direction: column; gap: 20px; }
+
+  textarea.main-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    padding: 14px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    resize: vertical;
+    min-height: 80px;
+    outline: none;
+    transition: border-color .2s;
+    line-height: 1.6;
+  }
+  textarea.main-input:focus { border-color: rgba(240,192,96,0.4); }
+  textarea.main-input::placeholder { color: var(--text3); }
+
+  .row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .row > * { flex: 1; min-width: 160px; }
+
+  /* Range slider */
+  .slider-wrap { display: flex; flex-direction: column; gap: 6px; }
+  .slider-row { display: flex; align-items: center; gap: 10px; }
+  .slider-val {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 10px;
+    font-family: var(--mono); font-size: 13px;
+    color: var(--accent); min-width: 36px; text-align: center;
+  }
+  input[type=range] {
+    flex: 1; accent-color: var(--accent);
+    cursor: pointer; height: 4px;
+  }
+
+  /* Tag buttons */
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag {
+    padding: 5px 12px; border-radius: 100px;
+    font-size: 12px; font-weight: 500; cursor: pointer;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text2); font-family: var(--sans);
+    transition: all .15s;
+  }
+  .tag:hover { border-color: var(--border2); color: var(--text); }
+  .tag.active {
+    background: rgba(240,192,96,.12);
+    border-color: rgba(240,192,96,.35);
+    color: var(--accent);
+  }
+
+  /* Generate button */
+  .btn-generate {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #0e0f13; border: none; border-radius: var(--r-sm);
+    padding: 14px 28px; font-size: 14px; font-weight: 700;
+    font-family: var(--sans); cursor: pointer; width: 100%;
+    transition: opacity .2s, transform .15s;
+    letter-spacing: .02em;
+  }
+  .btn-generate:hover:not(:disabled) { opacity: .9; transform: translateY(-1px); }
+  .btn-generate:active:not(:disabled) { transform: translateY(0); }
+  .btn-generate:disabled { opacity: .35; cursor: not-allowed; transform: none; }
+
+  /* ─── SPINNER ─── */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(14,15,19,.4);
+    border-top-color: #0e0f13;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    display: inline-block;
+  }
+
+  /* ─── ERROR ─── */
+  .error-box {
+    background: rgba(240,96,96,.08);
+    border: 1px solid rgba(240,96,96,.2);
+    border-radius: var(--r-sm);
+    padding: 14px 16px;
+    color: #f87171;
+    font-size: 13px;
+    margin-bottom: 16px;
+    display: none;
+  }
+  .error-box.show { display: block; }
+
+  /* ─── RESULTS HEADER ─── */
+  .results-header {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 16px;
+  }
+  .results-title { font-size: 15px; font-weight: 600; }
+  .results-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .btn-export {
+    background: rgba(78,142,247,.1);
+    color: var(--blue);
+    border: 1px solid rgba(78,142,247,.2);
+    border-radius: var(--r-sm);
+    padding: 8px 16px; font-size: 12px; font-weight: 600;
+    font-family: var(--mono); cursor: pointer; transition: all .18s;
+    white-space: nowrap;
+  }
+  .btn-export:hover { background: rgba(78,142,247,.18); }
+
+  /* ─── IDEA CARD ─── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .idea-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    overflow: hidden;
+    animation: fadeUp .35s ease both;
+    margin-bottom: 12px;
+  }
+  .idea-card:hover { border-color: var(--border2); }
+  .card-head {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .badge {
+    padding: 3px 9px; border-radius: 4px;
+    font-size: 10px; font-weight: 700; font-family: var(--mono);
+    letter-spacing: .06em; text-transform: uppercase;
+  }
+  .badge-photo { background: rgba(78,142,247,.18); color: #6badf8; }
+  .badge-video { background: rgba(240,96,96,.18); color: #f87171; }
+  .badge-illustration { background: rgba(240,192,96,.18); color: var(--accent); }
+  .badge-vector { background: rgba(62,207,142,.18); color: var(--green); }
+  .badge-high { background: rgba(62,207,142,.1); color: var(--green); border: 1px solid rgba(62,207,142,.2); }
+  .badge-medium { background: rgba(240,192,96,.1); color: var(--accent); border: 1px solid rgba(240,192,96,.2); }
+  .card-num {
+    margin-left: auto;
+    font-family: var(--mono); font-size: 11px; color: var(--text3);
+  }
+
+  .card-body { padding: 20px; display: flex; flex-direction: column; gap: 18px; }
+
+  .meta-block { display: flex; flex-direction: column; gap: 6px; }
+  .meta-label {
+    font-size: 10px; font-family: var(--mono);
+    letter-spacing: .1em; color: var(--accent);
+    text-transform: uppercase;
+  }
+  .meta-value { font-size: 14px; line-height: 1.55; }
+  .meta-value.title { font-weight: 600; font-size: 15px; }
+  .meta-value.desc { color: var(--text2); font-size: 13px; }
+
+  /* keywords */
+  .kw-wrap { display: flex; flex-wrap: wrap; gap: 5px; }
+  .kw {
+    background: var(--surface2);
+    color: var(--text2); border-radius: 4px;
+    padding: 3px 8px; font-size: 11px;
+    font-family: var(--mono); cursor: pointer;
+    transition: background .15s, color .15s;
+    border: 1px solid transparent;
+  }
+  .kw:hover { background: rgba(240,192,96,.08); color: var(--accent); border-color: rgba(240,192,96,.2); }
+
+  /* tip box */
+  .tip-box {
+    background: rgba(240,192,96,.05);
+    border: 1px solid rgba(240,192,96,.12);
+    border-radius: var(--r-sm);
+    padding: 12px 14px;
+    font-size: 12px; color: var(--text2); line-height: 1.6;
+  }
+  .tip-box strong { color: var(--accent); font-weight: 600; }
+
+  /* copy row */
+  .copy-row {
+    display: flex; gap: 6px; flex-wrap: wrap;
+    padding-top: 4px;
+    border-top: 1px solid var(--border);
+  }
+  .btn-copy {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 12px;
+    font-size: 11px; font-family: var(--mono);
+    color: var(--text2); cursor: pointer; transition: all .15s;
+  }
+  .btn-copy:hover { border-color: var(--border2); color: var(--text); }
+  .btn-copy.copied { color: var(--green); border-color: rgba(62,207,142,.3); background: rgba(62,207,142,.06); }
+  .btn-copy-all {
+    margin-left: auto;
+    background: rgba(240,192,96,.08);
+    border-color: rgba(240,192,96,.2);
+    color: var(--accent);
+  }
+  .btn-copy-all:hover { background: rgba(240,192,96,.15); }
+
+  /* ─── EMPTY STATE ─── */
+  .empty {
+    text-align: center; padding: 60px 20px;
+    color: var(--text3); display: none;
+  }
+  .empty.show { display: block; }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-text { font-size: 14px; }
+
+  /* ─── TOAST ─── */
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(12px);
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 100px; padding: 10px 20px;
+    font-size: 12px; font-family: var(--mono); color: var(--green);
+    pointer-events: none; opacity: 0;
+    transition: all .25s; z-index: 200; white-space: nowrap;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 560px) {
+    .header { padding: 28px 0 24px; }
+    .card { padding: 18px; }
+    .card-body { padding: 16px; gap: 14px; }
+    .card-head { padding: 12px 16px; }
+    .row > * { min-width: 100%; }
+    .logo { font-size: 19px; }
+    .btn-copy-all { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div>
+      <div class="logo">Stock<span>Gen</span></div>
+      <div class="header-sub">Adobe Stock content & metadata generator</div>
+    </div>
+    <div class="api-status" onclick="openModal()" title="Manage API Key">
+      <div class="dot" id="statusDot"></div>
+      <span id="statusText">Set API Key</span>
+    </div>
+  </div>
+
+  <!-- ERROR -->
+  <div class="error-box" id="errorBox"></div>
+
+  <!-- FORM CARD -->
+  <div class="card">
+    <div class="form-grid">
+
+      <!-- Topic -->
+      <div>
+        <label class="field-label">TOPIC / NICHE</label>
+        <textarea class="main-input" id="topicInput"
+          placeholder="e.g. remote work, sustainable living, street food Asia, yoga at home, tech startup..."
+          rows="2"></textarea>
+      </div>
+
+      <div class="row">
+        <!-- Count -->
+        <div>
+          <label class="field-label">NUMBER OF IDEAS</label>
+          <div class="slider-wrap">
+            <div class="slider-row">
+              <input type="range" min="1" max="20" value="5" id="countSlider"
+                oninput="document.getElementById('countVal').textContent=this.value">
+              <div class="slider-val" id="countVal">5</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Content Type -->
+        <div>
+          <label class="field-label">CONTENT TYPE <span style="color:var(--text3);font-size:10px">(optional)</span></label>
+          <div class="tags" id="typeTags">
+            <button class="tag" onclick="toggleTag(this,'photo')">📷 Photo</button>
+            <button class="tag" onclick="toggleTag(this,'video')">🎬 Video</button>
+            <button class="tag" onclick="toggleTag(this,'illustration')">🎨 Illustration</button>
+            <button class="tag" onclick="toggleTag(this,'vector')">✏️ Vector</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Style -->
+      <div>
+        <label class="field-label">STYLE / MOOD <span style="color:var(--text3);font-size:10px">(optional)</span></label>
+        <div class="tags" id="styleTags">
+          <button class="tag" onclick="toggleStyle(this,'Minimalist')">Minimalist</button>
+          <button class="tag" onclick="toggleStyle(this,'Bold & Vibrant')">Bold & Vibrant</button>
+          <button class="tag" onclick="toggleStyle(this,'Dark & Moody')">Dark & Moody</button>
+          <button class="tag" onclick="toggleStyle(this,'Natural & Organic')">Natural & Organic</button>
+          <button class="tag" onclick="toggleStyle(this,'Corporate')">Corporate</button>
+          <button class="tag" onclick="toggleStyle(this,'Vintage')">Vintage</button>
+          <button class="tag" onclick="toggleStyle(this,'Cinematic')">Cinematic</button>
+          <button class="tag" onclick="toggleStyle(this,'Flat Design')">Flat Design</button>
+        </div>
+      </div>
+
+      <!-- Generate -->
+      <button class="btn-generate" id="genBtn" onclick="generate()" disabled>
+        Generate Ideas
+      </button>
+
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="resultsSection" style="display:none">
+    <div class="results-header">
+      <div>
+        <div class="results-title" id="resultsTitle"></div>
+        <div class="results-sub" id="resultsSub"></div>
+      </div>
+      <button class="btn-export" onclick="exportCSV()">↓ Export CSV</button>
+    </div>
+    <div id="resultsList"></div>
+  </div>
+
+  <div class="empty" id="emptyState">
+    <div class="empty-icon">✦</div>
+    <div class="empty-text">Enter a topic and click Generate to get started</div>
+  </div>
+
+</div>
+
+<!-- API KEY MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+  <div class="modal">
+    <div class="modal-title">Groq API Key</div>
+    <div class="modal-sub">
+      Get your free API key at <a href="https://console.groq.com" target="_blank">console.groq.com</a>.
+      The key is stored locally in your browser only.
+    </div>
+    <label class="field-label">API KEY</label>
+    <div class="key-input-wrap">
+      <input class="key-input" type="password" id="apiKeyInput"
+        placeholder="gsk_••••••••••••••••••••••••"
+        onkeydown="if(event.key==='Enter')saveKey()">
+      <button class="key-toggle" onclick="toggleKeyVisibility()" id="eyeBtn" title="Show/hide">👁</button>
+    </div>
+    <button class="btn btn-primary" onclick="saveKey()">Save & Connect</button>
+    <button class="btn btn-ghost" onclick="clearKey()" id="clearBtn" style="display:none">Remove saved key</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ── STATE ──
+let apiKey = localStorage.getItem('groq_api_key') || '';
+let selectedTypes = [];
+let selectedStyle = '';
+let results = [];
+let currentTopic = '';
+
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const MODEL = 'llama-3.3-70b-versatile';
+
+const SYSTEM_PROMPT = `You are an expert Adobe Stock content strategist and metadata specialist.
+Generate content ideas and SEO-optimized metadata for Adobe Stock contributors.
+Always respond with ONLY a valid JSON array — no markdown, no explanation, no code fences.
+
+Each item must use this exact structure:
+{
+  "id": <number>,
+  "content_type": "photo" | "video" | "illustration" | "vector",
+  "title": "<max 70 chars, keyword-rich>",
+  "description": "<2-3 sentences, descriptive, mention style/mood/use case>",
+  "keywords": ["<exactly 50 keywords, most important first>"],
+  "category": "<Adobe Stock category>",
+  "commercial_potential": "high" | "medium",
+  "shooting_tips": "<1-2 practical tips>"
+}
+
+Rules:
+- keywords array must have exactly 50 items
+- title max 70 characters
+- think commercially: what do designers, marketers, businesses actually buy?
+- prioritize evergreen content
+- be specific and visual`;
+
+// ── INIT ──
+window.onload = () => {
+  updateApiStatus();
+  if (!apiKey) {
+    openModal();
+    document.getElementById('emptyState').classList.add('show');
+  }
+};
+
+// ── API KEY MODAL ──
+function openModal() {
+  const overlay = document.getElementById('modalOverlay');
+  overlay.classList.add('show');
+  const input = document.getElementById('apiKeyInput');
+  if (apiKey) input.value = apiKey;
+  document.getElementById('clearBtn').style.display = apiKey ? 'flex' : 'none';
+  setTimeout(() => input.focus(), 100);
+}
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('modalOverlay') && apiKey) closeModal();
+}
+function toggleKeyVisibility() {
+  const inp = document.getElementById('apiKeyInput');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+function saveKey() {
+  const val = document.getElementById('apiKeyInput').value.trim();
+  if (!val) { showToast('Please enter a valid API key', true); return; }
+  apiKey = val;
+  localStorage.setItem('groq_api_key', apiKey);
+  updateApiStatus();
+  closeModal();
+  showToast('API key saved ✓');
+}
+function clearKey() {
+  apiKey = '';
+  localStorage.removeItem('groq_api_key');
+  document.getElementById('apiKeyInput').value = '';
+  document.getElementById('clearBtn').style.display = 'none';
+  updateApiStatus();
+  showToast('API key removed');
+}
+function updateApiStatus() {
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusText');
+  const btn = document.getElementById('genBtn');
+  if (apiKey) {
+    dot.className = 'dot connected';
+    txt.textContent = 'Connected';
+    btn.disabled = false;
+  } else {
+    dot.className = 'dot';
+    txt.textContent = 'Set API Key';
+    btn.disabled = true;
+  }
+}
+
+// ── TAGS ──
+function toggleTag(el, val) {
+  el.classList.toggle('active');
+  if (selectedTypes.includes(val)) {
+    selectedTypes = selectedTypes.filter(t => t !== val);
+  } else {
+    selectedTypes.push(val);
+  }
+}
+function toggleStyle(el, val) {
+  const prev = document.querySelector('#styleTags .tag.active');
+  if (prev && prev !== el) prev.classList.remove('active');
+  el.classList.toggle('active');
+  selectedStyle = el.classList.contains('active') ? val : '';
+}
+
+// ── GENERATE ──
+async function generate() {
+  const topic = document.getElementById('topicInput').value.trim();
+  if (!topic) { showError('Please enter a topic first.'); return; }
+  if (!apiKey) { openModal(); return; }
+
+  const count = parseInt(document.getElementById('countSlider').value);
+  currentTopic = topic;
+  hideError();
+  setLoading(true);
+
+  const types = selectedTypes.length > 0
+    ? `Focus on these content types: ${selectedTypes.join(', ')}.`
+    : 'Mix content types appropriately (photo, video, illustration, vector).';
+  const styleHint = selectedStyle ? `Style/mood preference: ${selectedStyle}.` : '';
+
+  const userPrompt = `Generate exactly ${count} Adobe Stock content ideas for the topic: "${topic}".
+${types}
+${styleHint}
+Return ONLY a valid JSON array with exactly ${count} objects. No other text.`;
+
+  try {
+    const res = await fetch(GROQ_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        temperature: 0.85,
+        max_tokens: 8000,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: userPrompt }
+        ]
+      })
+    });
+
+    if (res.status === 401) {
+      showError('Invalid API key. Please check and update your key.');
+      openModal(); return;
+    }
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e.error?.message || `API error ${res.status}`);
+    }
+
+    const data = await res.json();
+    let raw = data.choices?.[0]?.message?.content || '[]';
+    raw = raw.replace(/```json|```/g, '').trim();
+
+    let ideas;
+    try {
+      ideas = JSON.parse(raw);
+      if (!Array.isArray(ideas)) ideas = [ideas];
+    } catch {
+      throw new Error('Could not parse AI response. Try again.');
+    }
+
+    results = ideas;
+    renderResults(ideas, topic, count);
+  } catch (err) {
+    showError(err.message || 'Something went wrong. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+}
+
+function setLoading(on) {
+  const btn = document.getElementById('genBtn');
+  const count = document.getElementById('countSlider').value;
+  if (on) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Generating...';
+  } else {
+    btn.disabled = !apiKey;
+    btn.innerHTML = `Generate Ideas`;
+  }
+}
+
+// ── RENDER ──
+function renderResults(ideas, topic, count) {
+  document.getElementById('emptyState').classList.remove('show');
+  const section = document.getElementById('resultsSection');
+  section.style.display = 'block';
+
+  document.getElementById('resultsTitle').textContent =
+    `${ideas.length} idea${ideas.length !== 1 ? 's' : ''} for "${topic}"`;
+  document.getElementById('resultsSub').textContent =
+    `Powered by LLaMA 3.3 70B via Groq`;
+
+  const list = document.getElementById('resultsList');
+  list.innerHTML = '';
+
+  ideas.forEach((idea, i) => {
+    const delay = i * 50;
+    const typeClass = `badge-${idea.content_type || 'photo'}`;
+    const potClass = `badge-${idea.commercial_potential || 'medium'}`;
+
+    const card = document.createElement('div');
+    card.className = 'idea-card';
+    card.style.animationDelay = `${delay}ms`;
+
+    const kwHtml = (idea.keywords || []).slice(0, 50).map(k =>
+      `<span class="kw" onclick="copyText('${escHtml(k)}', this, 'kw')">${escHtml(k)}</span>`
+    ).join('');
+
+    card.innerHTML = `
+      <div class="card-head">
+        <span class="badge ${typeClass}">${idea.content_type || 'photo'}</span>
+        <span class="badge ${potClass}">${idea.commercial_potential === 'high' ? '▲ High' : '◆ Med'} Potential</span>
+        <span style="font-size:11px;color:var(--text2);background:var(--surface2);padding:3px 9px;border-radius:4px;font-family:var(--mono)">${escHtml(idea.category || '')}</span>
+        <span class="card-num">#${String(i+1).padStart(2,'0')}</span>
+      </div>
+      <div class="card-body">
+        <div class="meta-block">
+          <span class="meta-label">Title</span>
+          <div class="meta-value title" id="title-${i}">${escHtml(idea.title)}</div>
+        </div>
+        <div class="meta-block">
+          <span class="meta-label">Description</span>
+          <div class="meta-value desc" id="desc-${i}">${escHtml(idea.description)}</div>
+        </div>
+        <div class="meta-block">
+          <span class="meta-label">Keywords <span style="color:var(--text3)">(${(idea.keywords||[]).length}/50 — click to copy single)</span></span>
+          <div class="kw-wrap">${kwHtml}</div>
+        </div>
+        ${idea.shooting_tips ? `
+        <div class="tip-box">
+          <strong>💡 Tip:</strong> ${escHtml(idea.shooting_tips)}
+        </div>` : ''}
+        <div class="copy-row">
+          <button class="btn-copy" onclick="copyField('title-${i}', this)">Copy Title</button>
+          <button class="btn-copy" onclick="copyField('desc-${i}', this)">Copy Description</button>
+          <button class="btn-copy" onclick="copyKeywords(${i})">Copy Keywords</button>
+          <button class="btn-copy btn-copy-all" onclick="copyAll(${i})">Copy All</button>
+        </div>
+      </div>`;
+
+    list.appendChild(card);
+  });
+}
+
+// ── COPY HELPERS ──
+function copyField(id, btn) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent).then(() => flashBtn(btn));
+}
+function copyKeywords(idx) {
+  const btn = event.target;
+  const kws = results[idx]?.keywords || [];
+  navigator.clipboard.writeText(kws.join(', ')).then(() => flashBtn(btn));
+}
+function copyAll(idx) {
+  const btn = event.target;
+  const idea = results[idx];
+  if (!idea) return;
+  const text = `TITLE:\n${idea.title}\n\nDESCRIPTION:\n${idea.description}\n\nKEYWORDS:\n${(idea.keywords||[]).join(', ')}`;
+  navigator.clipboard.writeText(text).then(() => {
+    flashBtn(btn);
+    showToast('All metadata copied ✓');
+  });
+}
+function copyText(text, el, type) {
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = el.style.color;
+    el.style.color = 'var(--green)';
+    el.style.borderColor = 'rgba(62,207,142,.3)';
+    setTimeout(() => {
+      el.style.color = '';
+      el.style.borderColor = '';
+    }, 1200);
+  });
+}
+function flashBtn(btn) {
+  const orig = btn.textContent;
+  btn.classList.add('copied');
+  btn.textContent = '✓ Copied';
+  setTimeout(() => { btn.classList.remove('copied'); btn.textContent = orig; }, 1500);
+}
+
+// ── EXPORT CSV ──
+function exportCSV() {
+  if (!results.length) return;
+  const header = ['#','Type','Title','Description','Keywords','Category','Commercial Potential'];
+  const rows = results.map((idea, i) => [
+    i + 1,
+    idea.content_type,
+    `"${(idea.title||'').replace(/"/g,'""')}"`,
+    `"${(idea.description||'').replace(/"/g,'""')}"`,
+    `"${(idea.keywords||[]).join('; ').replace(/"/g,'""')}"`,
+    `"${(idea.category||'').replace(/"/g,'""')}"`,
+    idea.commercial_potential
+  ]);
+  const csv = [header, ...rows].map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `stockgen-${currentTopic.replace(/\s+/g,'-').toLowerCase()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── UTILS ──
+function escHtml(str) {
+  return String(str||'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function showError(msg) {
+  const el = document.getElementById('errorBox');
+  el.textContent = '⚠ ' + msg;
+  el.classList.add('show');
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function hideError() {
+  document.getElementById('errorBox').classList.remove('show');
+}
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.color = isError ? 'var(--red)' : 'var(--green)';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+</script>
+</body>
+</html>
